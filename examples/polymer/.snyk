@@ -1,0 +1,17 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.21.5
+ignore: {}
+# patches apply the minimum changes required to fix a vulnerability
+patch:
+  'npm:debug:20170905':
+    - wct-browser-legacy > mocha > debug:
+        patched: '2021-08-18T07:23:19.960Z'
+  'npm:lodash:20180130':
+    - wct-browser-legacy > lodash:
+        patched: '2021-08-18T07:23:19.960Z'
+    - wct-browser-legacy > stacky > lodash:
+        patched: '2021-08-18T07:23:19.960Z'
+    - polymer-cli > web-component-tester > lodash:
+        patched: '2021-08-18T07:23:19.960Z'
+    - polymer-cli > web-component-tester > stacky > lodash:
+        patched: '2021-08-18T07:23:19.960Z'
