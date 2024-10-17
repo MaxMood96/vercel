@@ -1,7 +1,7 @@
 import chance from 'chance';
 import { client } from './client';
 
-export function createDomain(k: string) {
+export function createDomain(k?: string) {
   return {
     suffix: chance().bool(),
     verified: chance().bool(),
@@ -39,4 +39,19 @@ export function useDomains() {
       pagination: { count: limit, total: limit, page: 1, pages: 1 },
     });
   });
+}
+
+export function useDomain(postfix: string) {
+  const domain = createDomain(postfix);
+
+  client.scenario.get(
+    `/v4/domains/${encodeURIComponent(`example-${postfix}.com`)}`,
+    (req, res) => {
+      res.json({
+        domain,
+      });
+    }
+  );
+
+  return domain;
 }
