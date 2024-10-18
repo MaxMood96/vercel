@@ -1,8 +1,10 @@
+import { type Mock, beforeEach } from 'vitest';
 import { URL } from 'url';
 import chance from 'chance';
 import { client } from './client';
-import { Build, Deployment, User } from '../../src/types';
+import { Build, Deployment, User } from '@vercel-internals/types';
 import type { Request, Response } from 'express';
+import { defaultProject } from './project';
 
 let deployments = new Map<string, Deployment>();
 let deploymentBuilds = new Map<Deployment, Build[]>();
@@ -16,6 +18,8 @@ export function useDeployment({
   creator,
   state = 'READY',
   createdAt,
+  project = defaultProject,
+  target = 'production',
 }: {
   creator: Pick<User, 'id' | 'email' | 'name' | 'username'>;
   state?:
@@ -26,6 +30,8 @@ export function useDeployment({
     | 'READY'
     | 'CANCELED';
   createdAt?: number;
+  project: any; // FIX ME: Use `Project` once PR #9956 is merged
+  target?: Deployment['target'];
 }) {
   setupDeploymentEndpoints();
 
@@ -53,13 +59,14 @@ export function useDeployment({
     name,
     ownerId: creator.id,
     plan: 'hobby',
+    projectId: project.id,
     public: false,
     ready: createdAt + 30000,
     readyState: state,
     regions: [],
     routes: [],
     status: state,
-    target: 'production',
+    target,
     type: 'LAMBDAS',
     url: url.hostname,
     version: 2,
@@ -106,6 +113,45 @@ export function useDeploymentMissingProjectSettings() {
       },
     });
   });
+}
+
+export function useBuildLogs({
+  deployment,
+  logProducer,
+}: {
+  deployment: Deployment;
+  logProducer: () => AsyncGenerator<object, void, unknown>;
+}) {
+  client.scenario.get(
+    `/v3/now/deployments/${deployment.id}/events`,
+    async (req, res) => {
+      for await (const log of logProducer()) {
+        res.write(JSON.stringify(log) + '\n');
+      }
+      res.end();
+    }
+  );
+}
+
+export function useRuntimeLogs({
+  deployment,
+  logProducer,
+  spy,
+}: {
+  deployment: Deployment;
+  logProducer: () => AsyncGenerator<object, void, unknown>;
+  spy?: Mock;
+}) {
+  client.scenario.get(
+    `/v1/projects/${deployment.projectId}/deployments/${deployment.id}/runtime-logs`,
+    async (req, res) => {
+      spy?.(req.path, req.query);
+      for await (const log of logProducer()) {
+        res.write(JSON.stringify(log) + '\n');
+      }
+      res.end();
+    }
+  );
 }
 
 beforeEach(() => {
@@ -162,6 +208,14 @@ function setupDeploymentEndpoints(): void {
     }
     const builds = deploymentBuilds.get(deployment);
     res.json({ builds });
+  });
+
+  client.scenario.get('/:version/deployments/:id/aliases', (req, res) => {
+    const limit = parseInt(req.query.limit);
+    res.json({
+      aliases: [],
+      pagination: { count: limit, total: limit, page: 1, pages: 1 },
+    });
   });
 
   function handleGetDeployments(req: Request, res: Response) {

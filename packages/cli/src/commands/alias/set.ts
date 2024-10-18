@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { SetDifference } from 'utility-types';
 import { AliasRecord } from '../../util/alias/create-alias';
-import { Domain } from '../../types';
+import type { Domain } from '@vercel-internals/types';
 import { Output } from '../../util/output';
 import * as ERRORS from '../../util/errors-ts';
 import assignAlias from '../../util/alias/assign-alias';
@@ -18,6 +18,7 @@ import link from '../../util/output/link';
 import { getCommandName } from '../../util/pkg-name';
 import toHost from '../../util/to-host';
 import type { VercelConfig } from '@vercel/client';
+import { AliasSetTelemetryClient } from '../../util/telemetry/commands/alias/set';
 
 type Options = {
   '--debug': boolean;
@@ -31,6 +32,14 @@ export default async function set(
 ) {
   const setStamp = stamp();
   const { output, localConfig } = client;
+  const telemetryClient = new AliasSetTelemetryClient({
+    opts: {
+      output: client.output,
+      store: client.telemetryEventStore,
+    },
+  });
+  telemetryClient.trackCliFlagDebug(opts['--debug']);
+  telemetryClient.trackCliOptionLocalConfig(opts['--local-config']);
   const { contextName, user } = await getScope(client);
 
   // If there are more than two args we have to error
@@ -66,6 +75,8 @@ export default async function set(
 
   // For `vercel alias set <argument>`
   if (args.length === 1) {
+    const [aliasTarget] = args;
+    telemetryClient.trackCliArgumentCustomDomain(aliasTarget);
     const deployment = handleCertError(
       output,
       await getDeploymentForAlias(
@@ -123,8 +134,8 @@ export default async function set(
         return 1;
       }
 
-      console.log(
-        `${chalk.cyan('> Success!')} ${chalk.bold(
+      output.success(
+        `${chalk.bold(
           `${isWildcardAlias(target) ? '' : 'https://'}${handleResult.alias}`
         )} now points to https://${deployment.url} ${setStamp()}`
       );
@@ -134,6 +145,8 @@ export default async function set(
   }
 
   const [deploymentIdOrHost, aliasTarget] = args;
+  telemetryClient.trackCliArgumentDeploymentUrl(deploymentIdOrHost);
+  telemetryClient.trackCliArgumentCustomDomain(aliasTarget);
   const deployment = handleCertError(
     output,
     await getDeployment(client, contextName, deploymentIdOrHost)
@@ -170,10 +183,10 @@ export default async function set(
 
   const prefix = isWildcard ? '' : 'https://';
 
-  console.log(
-    `${chalk.cyan('> Success!')} ${chalk.bold(
-      `${prefix}${handleResult.alias}`
-    )} now points to https://${deployment.url} ${setStamp()}`
+  output.success(
+    `${chalk.bold(`${prefix}${handleResult.alias}`)} now points to https://${
+      deployment.url
+    } ${setStamp()}`
   );
 
   return 0;

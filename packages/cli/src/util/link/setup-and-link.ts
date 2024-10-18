@@ -1,7 +1,7 @@
 import { join, basename } from 'path';
 import chalk from 'chalk';
 import { remove } from 'fs-extra';
-import { ProjectLinkResult, ProjectSettings } from '../../types';
+import { ProjectLinkResult, ProjectSettings } from '@vercel-internals/types';
 import {
   getLinkedProject,
   linkFolderToProject,
@@ -10,7 +10,6 @@ import {
   VERCEL_DIR_PROJECT,
 } from '../projects/link';
 import createProject from '../projects/create-project';
-import updateProject from '../projects/update-project';
 import Client from '../client';
 import handleError from '../handle-error';
 import confirm from '../input/confirm';
@@ -51,7 +50,6 @@ export default async function setupAndLink(
   }: SetupAndLinkOptions
 ): Promise<ProjectLinkResult> {
   const { localConfig, output, config } = client;
-  const debug = output.isDebugEnabled();
 
   const isFile = !isDirectory(path);
   if (isFile) {
@@ -133,7 +131,7 @@ export default async function setupAndLink(
     const project = projectOrNewProjectName;
 
     await linkFolderToProject(
-      output,
+      client,
       path,
       {
         projectId: project.id,
@@ -199,14 +197,16 @@ export default async function setupAndLink(
         projectSettings: {
           ...localConfigurationOverrides,
           sourceFilesOutsideRootDirectory,
+          rootDirectory,
         },
+        autoAssignCustomDomains: true,
       };
 
       const deployment = await createDeploy(
         client,
         now,
         config.currentTeam || 'current user',
-        [sourcePath],
+        sourcePath,
         createArgs,
         org,
         true,
@@ -219,9 +219,9 @@ export default async function setupAndLink(
         deployment.code !== 'missing_project_settings'
       ) {
         output.error('Failed to detect project settings. Please try again.');
-        if (debug) {
-          console.log(deployment);
-        }
+
+        output.debug(deployment);
+
         return {
           status: 'error',
           exitCode: 1,
@@ -244,13 +244,13 @@ export default async function setupAndLink(
       settings.rootDirectory = rootDirectory;
     }
 
-    const project = await createProject(client, newProjectName);
-
-    await updateProject(client, project.id, settings);
-    Object.assign(project, settings);
+    const project = await createProject(client, {
+      ...settings,
+      name: newProjectName,
+    });
 
     await linkFolderToProject(
-      output,
+      client,
       path,
       {
         projectId: project.id,
@@ -263,6 +263,10 @@ export default async function setupAndLink(
 
     return { status: 'linked', org, project };
   } catch (err) {
+    if (isAPIError(err) && err.code === 'too_many_projects') {
+      output.prettyError(err);
+      return { status: 'error', exitCode: 1, reason: 'TOO_MANY_PROJECTS' };
+    }
     handleError(err);
 
     return { status: 'error', exitCode: 1 };

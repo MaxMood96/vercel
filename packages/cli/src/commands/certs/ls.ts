@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ms from 'ms';
-import table from 'text-table';
+import table from '../../util/output/table';
 import Client from '../../util/client';
 import getScope from '../../util/get-scope';
 import {
@@ -9,8 +9,7 @@ import {
 } from '../../util/get-pagination-opts';
 import stamp from '../../util/output/stamp';
 import getCerts from '../../util/certs/get-certs';
-import strlen from '../../util/strlen';
-import { Cert } from '../../types';
+import type { Cert } from '@vercel-internals/types';
 import getCommandFlags from '../../util/get-command-flags';
 import { getCommandName } from '../../util/pkg-name';
 
@@ -43,10 +42,7 @@ async function ls(
   }
 
   // Get the list of certificates
-  const { certs, pagination } = await getCerts(
-    client,
-    ...paginationOptions
-  ).catch(err => err);
+  const { certs, pagination } = await getCerts(client, ...paginationOptions);
 
   output.log(
     `${
@@ -55,7 +51,7 @@ async function ls(
   );
 
   if (certs.length > 0) {
-    output.log(formatCertsTable(certs));
+    client.stdout.write(formatCertsTable(certs));
   }
 
   if (pagination && pagination.count === 20) {
@@ -73,11 +69,7 @@ async function ls(
 function formatCertsTable(certsList: Cert[]) {
   return `${table(
     [formatCertsTableHead(), ...formatCertsTableBody(certsList)],
-    {
-      align: ['l', 'l', 'r', 'c', 'r'],
-      hsep: ' '.repeat(2),
-      stringLength: strlen,
-    }
+    { align: ['l', 'l', 'r', 'c', 'r'], hsep: 2 }
   ).replace(/^(.*)/gm, '  $1')}\n`;
 }
 

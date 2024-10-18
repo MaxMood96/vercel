@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ms from 'ms';
-import table from 'text-table';
+import table from '../../util/output/table';
 import Client from '../../util/client';
 import getAliases from '../../util/alias/get-aliases';
 import getScope from '../../util/get-scope';
@@ -9,10 +9,11 @@ import {
   getPaginationOpts,
 } from '../../util/get-pagination-opts';
 import stamp from '../../util/output/stamp';
-import strlen from '../../util/strlen';
 import getCommandFlags from '../../util/get-command-flags';
 import { getCommandName } from '../../util/pkg-name';
-import { Alias } from '../../types';
+import { AliasLsTelemetryClient } from '../../util/telemetry/commands/alias/ls';
+
+import type { Alias } from '@vercel-internals/types';
 
 export default async function ls(
   client: Client,
@@ -22,10 +23,20 @@ export default async function ls(
   const { output } = client;
   const { contextName } = await getScope(client);
 
+  const telemetryClient = new AliasLsTelemetryClient({
+    opts: {
+      output: client.output,
+      store: client.telemetryEventStore,
+    },
+  });
   let paginationOptions;
 
   try {
     paginationOptions = getPaginationOpts(opts);
+    let [next, limit] = paginationOptions;
+
+    telemetryClient.trackCliOptionNext(next);
+    telemetryClient.trackCliOptionLimit(limit);
   } catch (err: unknown) {
     output.prettyError(err);
     return 1;
@@ -51,7 +62,7 @@ export default async function ls(
     ...paginationOptions
   );
   output.log(`aliases found under ${chalk.bold(contextName)} ${lsStamp()}`);
-  output.log(printAliasTable(aliases));
+  client.stdout.write(printAliasTable(aliases));
 
   if (pagination && pagination.count === 20) {
     const flags = getCommandFlags(opts, ['_', '--next']);
@@ -78,10 +89,6 @@ function printAliasTable(aliases: Alias[]) {
         ms(Date.now() - a.createdAt),
       ]),
     ],
-    {
-      align: ['l', 'l', 'r'],
-      hsep: ' '.repeat(4),
-      stringLength: strlen,
-    }
+    { align: ['l', 'l', 'r'], hsep: 4 }
   ).replace(/^/gm, '  ')}\n\n`;
 }
