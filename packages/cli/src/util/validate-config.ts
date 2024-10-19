@@ -21,6 +21,9 @@ const imagesSchema = {
   additionalProperties: false,
   required: ['sizes'],
   properties: {
+    contentDispositionType: {
+      enum: ['inline', 'attachment'],
+    },
     contentSecurityPolicy: {
       type: 'string',
       minLength: 1,
@@ -47,6 +50,27 @@ const imagesSchema = {
         enum: ['image/avif', 'image/webp', 'image/jpeg', 'image/png'],
       },
     },
+    localPatterns: {
+      type: 'array',
+      minItems: 0,
+      maxItems: 25,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          pathname: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 256,
+          },
+          search: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 256,
+          },
+        },
+      },
+    },
     minimumCacheTTL: {
       type: 'integer',
       minimum: 1,
@@ -71,12 +95,17 @@ const imagesSchema = {
           },
           port: {
             type: 'string',
-            minLength: 1,
+            minLength: 0,
             maxLength: 5,
           },
           pathname: {
             type: 'string',
             minLength: 1,
+            maxLength: 256,
+          },
+          search: {
+            type: 'string',
+            minLength: 0,
             maxLength: 256,
           },
         },
@@ -88,6 +117,29 @@ const imagesSchema = {
       maxItems: 50,
       items: {
         type: 'number',
+      },
+    },
+  },
+};
+
+const cronsSchema = {
+  type: 'array',
+  minItems: 0,
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['path', 'schedule'],
+    properties: {
+      path: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 512,
+        pattern: '^/.*',
+      },
+      schedule: {
+        type: 'string',
+        minLength: 9,
+        maxLength: 256,
       },
     },
   },
@@ -108,6 +160,7 @@ const vercelConfigSchema = {
     trailingSlash: trailingSlashSchema,
     functions: functionsSchema,
     images: imagesSchema,
+    crons: cronsSchema,
   },
 };
 

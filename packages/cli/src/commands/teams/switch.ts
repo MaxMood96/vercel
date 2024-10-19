@@ -7,17 +7,22 @@ import { emoji } from '../../util/emoji';
 import getUser from '../../util/get-user';
 import getTeams from '../../util/teams/get-teams';
 import listInput from '../../util/input/list';
-import { Team, GlobalConfig } from '../../types';
+import { Team, GlobalConfig } from '@vercel-internals/types';
 import { writeToConfigFile } from '../../util/config/files';
+import type { Output } from '../../util/output';
 
-const updateCurrentTeam = (config: GlobalConfig, team?: Team) => {
+const updateCurrentTeam = (
+  output: Output,
+  config: GlobalConfig,
+  team?: Team
+) => {
   if (team) {
     config.currentTeam = team.id;
   } else {
     delete config.currentTeam;
   }
 
-  writeToConfigFile(config);
+  writeToConfigFile(output, config);
 };
 
 export default async function main(client: Client, desiredSlug?: string) {
@@ -70,14 +75,21 @@ export default async function main(client: Client, desiredSlug?: string) {
       suffix += ` ${emoji('locked')}`;
     }
 
+    const personalAccountChoice =
+      user.version === 'northstar'
+        ? []
+        : [
+            { separator: 'Personal Account' },
+            {
+              name: `${user.name || user.email} (${user.username})${suffix}`,
+              value: user.username,
+              short: user.username,
+              selected: personalScopeSelected,
+            },
+          ];
+
     const choices = [
-      { separator: 'Personal Account' },
-      {
-        name: `${user.name || user.email} (${user.username})${suffix}`,
-        value: user.username,
-        short: user.username,
-        selected: personalScopeSelected,
-      },
+      ...personalAccountChoice,
       { separator: 'Teams' },
       ...teamChoices,
     ];
@@ -97,6 +109,11 @@ export default async function main(client: Client, desiredSlug?: string) {
   }
 
   if (desiredSlug === user.username || desiredSlug === user.email) {
+    if (user.version === 'northstar') {
+      output.error('You cannot set your Personal Account as the scope.');
+      return 1;
+    }
+
     // Switch to user's personal account
     if (personalScopeSelected) {
       output.log('No changes made');
@@ -110,7 +127,7 @@ export default async function main(client: Client, desiredSlug?: string) {
       });
     }
 
-    updateCurrentTeam(config);
+    updateCurrentTeam(output, config);
 
     output.success(
       `Your account (${chalk.bold(user.username)}) is now active!`
@@ -142,7 +159,7 @@ export default async function main(client: Client, desiredSlug?: string) {
     });
   }
 
-  updateCurrentTeam(config, newTeam);
+  updateCurrentTeam(output, config, newTeam);
 
   output.success(
     `The team ${chalk.bold(newTeam.name)} (${newTeam.slug}) is now active!`

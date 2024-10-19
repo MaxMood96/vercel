@@ -9,9 +9,11 @@ import stamp from '../../util/output/stamp';
 import getAuthCode from '../../util/domains/get-auth-code';
 import getDomainPrice from '../../util/domains/get-domain-price';
 import checkTransfer from '../../util/domains/check-transfer';
-import promptBool from '../../util/input/prompt-bool';
+import confirm from '../../util/input/confirm';
 import isRootDomain from '../../util/is-root-domain';
 import { getCommandName } from '../../util/pkg-name';
+
+import { DomainsTransferInTelemetryClient } from '../../util/telemetry/commands/domains/transfer-in';
 
 type Options = {
   '--code': string;
@@ -22,8 +24,15 @@ export default async function transferIn(
   opts: Partial<Options>,
   args: string[]
 ) {
-  const { output } = client;
+  const { output, telemetryEventStore } = client;
   const { contextName } = await getScope(client);
+  const telemetry = new DomainsTransferInTelemetryClient({
+    opts: {
+      store: telemetryEventStore,
+      output,
+    },
+  });
+  telemetry.trackCliOptionCode(opts['--code']);
 
   const [domainName] = args;
   if (!domainName) {
@@ -32,6 +41,8 @@ export default async function transferIn(
     );
     return 1;
   }
+
+  telemetry.trackCliArgumentDomainName(domainName);
 
   if (!isRootDomain(domainName)) {
     output.error(
@@ -65,14 +76,16 @@ export default async function transferIn(
     )} to transfer under ${chalk.bold(contextName)}! ${availableStamp()}`
   );
 
-  const authCode = await getAuthCode(opts['--code']);
+  const authCode = await getAuthCode(client, opts['--code']);
 
-  const shouldTransfer = await promptBool(
+  const shouldTransfer = await confirm(
+    client,
     transferPolicy === 'no-change'
       ? `Transfer now for ${chalk.bold(`$${price}`)}?`
       : `Transfer now with 1yr renewal for ${chalk.bold(`$${price}`)}?`,
-    client
+    false
   );
+
   if (!shouldTransfer) {
     return 0;
   }
@@ -121,10 +134,8 @@ export default async function transferIn(
     return 1;
   }
 
-  console.log(
-    `${chalk.cyan('> Success!')} Domain ${param(
-      domainName
-    )} transfer started ${transferStamp()}`
+  output.success(
+    `Domain ${param(domainName)} transfer started ${transferStamp()}`
   );
   output.print(
     `  To finalize the transfer, we are waiting for approval from your current registrar.\n`
