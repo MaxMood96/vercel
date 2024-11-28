@@ -323,10 +323,10 @@
     tslib "1.9.3"
     web-animations-js "2.3.1"
 
-"@dojo/themes@^6.0.0":
-  version "6.0.0"
-  resolved "https://registry.yarnpkg.com/@dojo/themes/-/themes-6.0.0.tgz#f4071b561747babaa3c3f74a649ca18ef78d5c29"
-  integrity sha512-48a/r7Cd6VtEXHdDt+WR6CQcFos6CiKEYfsvY5GqqiPe/UkrefWgCzNm4p7RA+l8pBVP3J1dy9/V1L7HWzHJbA==
+"@dojo/themes@^6.2.0":
+  version "6.2.0"
+  resolved "https://registry.yarnpkg.com/@dojo/themes/-/themes-6.2.0.tgz#378e75420aa889ab0508058073c9bbe48efce919"
+  integrity sha512-09dzhvovVsdEOkWFecF/x7An1KA+y8gFOhqoOJPkqOnXvzIzwmYjnKo1EWBcOgynsmWzeIxM1deTKB6z3vbyAw==
 
 "@dojo/webpack-contrib@^6.0.2":
   version "6.0.5"
